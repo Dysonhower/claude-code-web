@@ -20,6 +20,19 @@
 
     <!-- Main Chat -->
     <main class="chat" id="chat">
+      <!-- Chat header -->
+      <div class="chat-header">
+        <h1 class="chat-title">Claude Web</h1>
+        <div class="chat-header-right">
+          <button class="pet-selector-btn" id="petSelectorBtn" title="桌宠">🐾 桌宠</button>
+          <div class="pet-selector-menu" id="petSelectorMenu" hidden>
+            <button data-pet="off">关闭</button>
+            <button data-pet="killua">奇犽</button>
+            <button data-pet="other" disabled>其他角色（敬请期待）</button>
+          </div>
+        </div>
+      </div>
+
       <div class="chat-empty" id="chatEmpty">
         <div class="chat-welcome">
           <div class="welcome-icon">👋</div>
@@ -37,14 +50,6 @@
 
     <!-- Floating status -->
     <div class="status" id="status"></div>
-  </div>
-
-  <!-- Pet selector -->
-  <button class="pet-selector-btn" id="petSelectorBtn" title="桌宠">🐾</button>
-  <div class="pet-selector-menu" id="petSelectorMenu" hidden>
-    <button data-pet="off">关闭</button>
-    <button data-pet="killua">奇犽</button>
-    <button data-pet="other" disabled>其他角色（敬请期待）</button>
   </div>
 
   <!-- Pet stage -->

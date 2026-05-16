@@ -146,6 +146,27 @@ html, body {
   overflow: hidden;
 }
 
+.chat-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 20px;
+  background: var(--bg-sidebar);
+  border-bottom: 1px solid var(--border);
+}
+
+.chat-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.chat-header-right {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
 .chat-empty {
   flex: 1;
   display: flex;
@@ -450,20 +471,16 @@ html, body {
 
 /* ── Pet Selector ── */
 .pet-selector-btn {
-  position: fixed;
-  top: 16px;
-  right: 16px;
-  width: 40px;
-  height: 40px;
   background: var(--bg-bubble-assistant);
   border: 1px solid var(--border);
-  border-radius: 50%;
+  border-radius: 6px;
   cursor: pointer;
-  font-size: 20px;
+  font-size: 14px;
+  padding: 8px 14px;
   display: flex;
   align-items: center;
-  justify-content: center;
-  z-index: 50;
+  gap: 6px;
+  color: var(--text);
   transition: background 0.15s;
 }
 
@@ -472,9 +489,10 @@ html, body {
 }
 
 .pet-selector-menu {
-  position: fixed;
-  top: 60px;
-  right: 16px;
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 4px;
   background: var(--bg-bubble-assistant);
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -649,16 +667,11 @@ html, body {
   }
 
   .pet-selector-btn {
-    width: 32px;
-    height: 32px;
-    font-size: 16px;
-    top: 12px;
-    right: 12px;
+    font-size: 12px;
+    padding: 6px 10px;
   }
 
   .pet-selector-menu {
-    top: 48px;
-    right: 12px;
     min-width: 140px;
   }
 
