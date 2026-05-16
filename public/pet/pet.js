@@ -1,131 +1,17 @@
 // Pet system main controller
 (function() {
-  // ── Killua character data (16-bit pixel art style) ──
-  const killua = {
+  // ── Killua character data ──
+  var killua = {
     id: 'killua',
     name: '奇犽',
+    basePath: '/pet/images/killua/',
     states: {
-      idle: {
-        svg: `<svg viewBox="0 0 32 40" style="background:none">
-  <rect x="8" y="20" width="16" height="8" fill="#6b5b95"/>
-  <rect x="10" y="18" width="12" height="2" fill="#fff"/>
-  <rect x="6" y="28" width="20" height="6" fill="#333"/>
-  <rect x="6" y="34" width="6" height="6" fill="#6b5b95"/>
-  <rect x="20" y="34" width="6" height="6" fill="#6b5b95"/>
-  <rect x="10" y="4" width="12" height="12" fill="#fce8d5"/>
-  <rect x="8" y="0" width="16" height="4" fill="#e8e8e8"/>
-  <rect x="6" y="2" width="4" height="6" fill="#e8e8e8"/>
-  <rect x="22" y="2" width="4" height="6" fill="#e8e8e8"/>
-  <rect x="10" y="0" width="2" height="2" fill="#fff"/>
-  <rect x="20" y="0" width="2" height="2" fill="#fff"/>
-  <rect x="14" y="0" width="4" height="2" fill="#fff"/>
-  <rect x="12" y="8" width="3" height="3" fill="#333"/>
-  <rect x="17" y="8" width="3" height="3" fill="#333"/>
-  <rect x="14" y="12" width="4" height="1" fill="#333"/>
-</svg>`,
-        animClass: 'pet-anim-breathe'
-      },
-      thinking: {
-        svg: `<svg viewBox="0 0 32 40" style="background:none">
-  <rect x="8" y="20" width="16" height="8" fill="#6b5b95"/>
-  <rect x="10" y="18" width="12" height="2" fill="#fff"/>
-  <rect x="6" y="28" width="20" height="6" fill="#333"/>
-  <rect x="6" y="34" width="6" height="6" fill="#6b5b95"/>
-  <rect x="20" y="34" width="6" height="6" fill="#6b5b95"/>
-  <rect x="11" y="3" width="12" height="12" fill="#fce8d5"/>
-  <rect x="9" y="0" width="16" height="4" fill="#e8e8e8"/>
-  <rect x="7" y="2" width="4" height="6" fill="#e8e8e8"/>
-  <rect x="23" y="2" width="4" height="6" fill="#e8e8e8"/>
-  <rect x="11" y="0" width="2" height="2" fill="#fff"/>
-  <rect x="21" y="0" width="2" height="2" fill="#fff"/>
-  <rect x="15" y="0" width="4" height="2" fill="#fff"/>
-  <rect x="13" y="6" width="3" height="3" fill="#333"/>
-  <rect x="18" y="6" width="3" height="3" fill="#333"/>
-  <rect x="15" y="11" width="2" height="1" fill="#333"/>
-  <rect x="4" y="16" width="4" height="4" fill="#fce8d5"/>
-</svg>`,
-        animClass: 'pet-anim-tilt'
-      },
-      talking: {
-        svg: `<svg viewBox="0 0 32 40" style="background:none">
-  <rect x="8" y="20" width="16" height="8" fill="#6b5b95"/>
-  <rect x="10" y="18" width="12" height="2" fill="#fff"/>
-  <rect x="6" y="28" width="20" height="6" fill="#333"/>
-  <rect x="6" y="34" width="6" height="6" fill="#6b5b95"/>
-  <rect x="20" y="34" width="6" height="6" fill="#6b5b95"/>
-  <rect x="10" y="4" width="12" height="12" fill="#fce8d5"/>
-  <rect x="8" y="0" width="16" height="4" fill="#e8e8e8"/>
-  <rect x="6" y="2" width="4" height="6" fill="#e8e8e8"/>
-  <rect x="22" y="2" width="4" height="6" fill="#e8e8e8"/>
-  <rect x="10" y="0" width="2" height="2" fill="#fff"/>
-  <rect x="20" y="0" width="2" height="2" fill="#fff"/>
-  <rect x="14" y="0" width="4" height="2" fill="#fff"/>
-  <rect x="12" y="7" width="3" height="4" fill="#333"/>
-  <rect x="17" y="7" width="3" height="4" fill="#333"/>
-  <rect x="13" y="12" width="6" height="2" fill="#333"/>
-  <rect x="14" y="13" width="4" height="1" fill="#fce8d5"/>
-</svg>`,
-        animClass: 'pet-anim-bob'
-      },
-      happy: {
-        svg: `<svg viewBox="0 0 32 40" style="background:none">
-  <rect x="8" y="20" width="16" height="8" fill="#6b5b95"/>
-  <rect x="10" y="18" width="12" height="2" fill="#fff"/>
-  <rect x="6" y="28" width="20" height="6" fill="#333"/>
-  <rect x="6" y="34" width="6" height="6" fill="#6b5b95"/>
-  <rect x="20" y="34" width="6" height="6" fill="#6b5b95"/>
-  <rect x="10" y="4" width="12" height="12" fill="#fce8d5"/>
-  <rect x="8" y="0" width="16" height="4" fill="#e8e8e8"/>
-  <rect x="6" y="2" width="4" height="6" fill="#e8e8e8"/>
-  <rect x="22" y="2" width="4" height="6" fill="#e8e8e8"/>
-  <rect x="10" y="0" width="2" height="2" fill="#fff"/>
-  <rect x="20" y="0" width="2" height="2" fill="#fff"/>
-  <rect x="14" y="0" width="4" height="2" fill="#fff"/>
-  <rect x="12" y="8" width="3" height="2" fill="#333"/>
-  <rect x="17" y="8" width="3" height="2" fill="#333"/>
-  <rect x="12" y="12" width="8" height="2" fill="#333"/>
-  <rect x="13" y="13" width="6" height="1" fill="#fce8d5"/>
-</svg>`,
-        animClass: 'pet-anim-bounce'
-      },
-      sad: {
-        svg: `<svg viewBox="0 0 32 40" style="background:none">
-  <rect x="8" y="22" width="16" height="8" fill="#6b5b95"/>
-  <rect x="10" y="20" width="12" height="2" fill="#fff"/>
-  <rect x="6" y="30" width="20" height="6" fill="#333"/>
-  <rect x="6" y="36" width="6" height="4" fill="#6b5b95"/>
-  <rect x="20" y="36" width="6" height="4" fill="#6b5b95"/>
-  <rect x="10" y="6" width="12" height="12" fill="#fce8d5"/>
-  <rect x="8" y="2" width="16" height="4" fill="#ccc"/>
-  <rect x="6" y="4" width="4" height="6" fill="#ccc"/>
-  <rect x="22" y="4" width="4" height="6" fill="#ccc"/>
-  <rect x="12" y="10" width="3" height="3" fill="#333"/>
-  <rect x="17" y="10" width="3" height="3" fill="#333"/>
-  <rect x="14" y="14" width="4" height="1" fill="#333"/>
-</svg>`,
-        animClass: ''
-      },
-      error: {
-        svg: `<svg viewBox="0 0 32 40" style="background:none">
-  <rect x="8" y="20" width="16" height="8" fill="#6b5b95"/>
-  <rect x="10" y="18" width="12" height="2" fill="#fff"/>
-  <rect x="6" y="28" width="20" height="6" fill="#333"/>
-  <rect x="6" y="34" width="6" height="6" fill="#6b5b95"/>
-  <rect x="20" y="34" width="6" height="6" fill="#6b5b95"/>
-  <rect x="10" y="4" width="12" height="12" fill="#fce8d5"/>
-  <rect x="8" y="0" width="16" height="4" fill="#e8e8e8"/>
-  <rect x="4" y="2" width="6" height="6" fill="#e8e8e8"/>
-  <rect x="22" y="2" width="6" height="6" fill="#e8e8e8"/>
-  <rect x="12" y="7" width="1" height="1" fill="#333"/>
-  <rect x="14" y="9" width="1" height="1" fill="#333"/>
-  <rect x="17" y="7" width="1" height="1" fill="#333"/>
-  <rect x="19" y="9" width="1" height="1" fill="#333"/>
-  <rect x="13" y="8" width="1" height="1" fill="#333"/>
-  <rect x="18" y="8" width="1" height="1" fill="#333"/>
-  <rect x="13" y="12" width="6" height="2" fill="#333"/>
-</svg>`,
-        animClass: 'pet-anim-shake'
-      }
+      idle:     { image: 'idle.png',     animClass: 'pet-anim-breathe' },
+      thinking: { image: 'thinking.png', animClass: 'pet-anim-tilt' },
+      talking:  { image: 'talking.png',  animClass: 'pet-anim-bob' },
+      happy:    { image: 'happy.png',    animClass: 'pet-anim-bounce' },
+      sad:      { image: 'sad.png',      animClass: '' },
+      error:    { image: 'error.png',    animClass: 'pet-anim-shake' }
     },
     lines: {
       onThinking: ['让我想想…', '嗯…', '有意思…'],
@@ -145,6 +31,7 @@
     char: null,
     state: 'idle',
     stage: null,
+    imgEl: null,
     position: { x: null, y: null },
     lastBubble: '',
     idleTimer: null,
@@ -187,7 +74,16 @@
     var stateData = petState.char.states[petState.state];
     if (!stateData) return;
 
-    petState.stage.innerHTML = stateData.svg;
+    // Create or update image element
+    if (!petState.imgEl) {
+      petState.imgEl = document.createElement('img');
+      petState.imgEl.style.width = '100%';
+      petState.imgEl.style.height = '100%';
+      petState.imgEl.style.objectFit = 'contain';
+      petState.stage.appendChild(petState.imgEl);
+    }
+
+    petState.imgEl.src = petState.char.basePath + stateData.image;
     petState.stage.className = 'pet-stage';
     if (stateData.animClass) petState.stage.classList.add(stateData.animClass);
 
@@ -274,7 +170,6 @@
           petState.textDeltaSeen = true;
           setState('talking');
         }
-        // Tool use detection
         var eventType = event.event && event.event.type;
         if (eventType === 'content_block_start') {
           var block = event.event.content_block;
@@ -317,7 +212,9 @@
     petState.position = loadPosition();
 
     petState.stage = document.getElementById('petStage');
+    petState.imgEl = null; // Reset image element
     if (petState.stage) {
+      petState.stage.innerHTML = ''; // Clear previous content
       petState.stage.hidden = false;
       render();
       setupDrag();
@@ -332,6 +229,7 @@
     petState.active = null;
     petState.char = null;
     petState.state = 'idle';
+    petState.imgEl = null;
     if (petState.stage) {
       petState.stage.hidden = true;
       petState.stage.innerHTML = '';
