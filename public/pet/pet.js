@@ -6,12 +6,12 @@
     name: '奇犽',
     basePath: '/pet/images/killua/',
     states: {
-      idle:     { image: 'idle.png',     animClass: 'pet-anim-breathe' },
-      thinking: { image: 'thinking.png', animClass: 'pet-anim-tilt' },
-      talking:  { image: 'talking.png',  animClass: 'pet-anim-bob' },
-      happy:    { image: 'happy.png',    animClass: 'pet-anim-bounce' },
-      sad:      { image: 'sad.png',      animClass: '' },
-      error:    { image: 'error.png',    animClass: 'pet-anim-shake' }
+      idle:     { image: 'killua_idle.png',     animClass: 'pet-anim-breathe' },
+      thinking: { image: 'killua_thinking.png', animClass: 'pet-anim-tilt' },
+      talking:  { image: 'killua_talking.png',  animClass: 'pet-anim-bob' },
+      happy:    { image: 'killua_happy.png',    animClass: 'pet-anim-bounce' },
+      sad:      { image: 'killua_sad.png',      animClass: '' },
+      error:    { image: 'killua_error.png',    animClass: 'pet-anim-shake' }
     },
     lines: {
       onThinking: ['让我想想…', '嗯…', '有意思…'],
@@ -80,6 +80,12 @@
       petState.imgEl.style.width = '100%';
       petState.imgEl.style.height = '100%';
       petState.imgEl.style.objectFit = 'contain';
+      petState.imgEl.onerror = function() {
+        // Fallback to idle image if state image not found
+        if (petState.imgEl.src !== petState.char.basePath + 'killua_idle.png') {
+          petState.imgEl.src = petState.char.basePath + 'killua_idle.png';
+        }
+      };
       petState.stage.appendChild(petState.imgEl);
     }
 
