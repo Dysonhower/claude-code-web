@@ -1,374 +1,456 @@
-// Pet system main controller (ES module)
-import killua from './killua.js';
-
-// Character registry - easy to add new characters
-const registry = {
-  killua: killua
-};
-
-// Pet singleton state
-const pet = {
-  active: null,       // current character id
-  char: null,         // current character module
-  state: 'idle',      // current state name
-  stage: null,        // DOM element #petStage
-  position: { x: null, y: null }, // drag position
-  lastBubble: '',     // last bubble text (prevent repeats)
-  idleTimer: null,    // idle action timer
-  _textDeltaSeen: false
-};
-
-// Default position (right bottom)
-const defaultPos = () => ({
-  x: window.innerWidth - 164,
-  y: window.innerHeight - 184
-});
-
-// Clamp position to viewport
-function clampPos(x, y) {
-  const w = window.innerWidth;
-  const h = window.innerHeight;
-  const stageW = 140;
-  const stageH = 160;
-  return {
-    x: Math.max(0, Math.min(w - stageW, x)),
-    y: Math.max(0, Math.min(h - stageH, y))
-  };
-}
-
-// Load saved position from localStorage
-function loadPosition() {
-  try {
-    const saved = localStorage.getItem('pet.position');
-    if (saved) {
-      const pos = JSON.parse(saved);
-      return clampPos(pos.x, pos.y);
+// Pet system main controller
+(function() {
+  // ── Killua character data (16-bit pixel art style) ──
+  const killua = {
+    id: 'killua',
+    name: '奇犽',
+    states: {
+      idle: {
+        svg: `<svg viewBox="0 0 32 40" style="background:none">
+  <rect x="8" y="20" width="16" height="8" fill="#6b5b95"/>
+  <rect x="10" y="18" width="12" height="2" fill="#fff"/>
+  <rect x="6" y="28" width="20" height="6" fill="#333"/>
+  <rect x="6" y="34" width="6" height="6" fill="#6b5b95"/>
+  <rect x="20" y="34" width="6" height="6" fill="#6b5b95"/>
+  <rect x="10" y="4" width="12" height="12" fill="#fce8d5"/>
+  <rect x="8" y="0" width="16" height="4" fill="#e8e8e8"/>
+  <rect x="6" y="2" width="4" height="6" fill="#e8e8e8"/>
+  <rect x="22" y="2" width="4" height="6" fill="#e8e8e8"/>
+  <rect x="10" y="0" width="2" height="2" fill="#fff"/>
+  <rect x="20" y="0" width="2" height="2" fill="#fff"/>
+  <rect x="14" y="0" width="4" height="2" fill="#fff"/>
+  <rect x="12" y="8" width="3" height="3" fill="#333"/>
+  <rect x="17" y="8" width="3" height="3" fill="#333"/>
+  <rect x="14" y="12" width="4" height="1" fill="#333"/>
+</svg>`,
+        animClass: 'pet-anim-breathe'
+      },
+      thinking: {
+        svg: `<svg viewBox="0 0 32 40" style="background:none">
+  <rect x="8" y="20" width="16" height="8" fill="#6b5b95"/>
+  <rect x="10" y="18" width="12" height="2" fill="#fff"/>
+  <rect x="6" y="28" width="20" height="6" fill="#333"/>
+  <rect x="6" y="34" width="6" height="6" fill="#6b5b95"/>
+  <rect x="20" y="34" width="6" height="6" fill="#6b5b95"/>
+  <rect x="11" y="3" width="12" height="12" fill="#fce8d5"/>
+  <rect x="9" y="0" width="16" height="4" fill="#e8e8e8"/>
+  <rect x="7" y="2" width="4" height="6" fill="#e8e8e8"/>
+  <rect x="23" y="2" width="4" height="6" fill="#e8e8e8"/>
+  <rect x="11" y="0" width="2" height="2" fill="#fff"/>
+  <rect x="21" y="0" width="2" height="2" fill="#fff"/>
+  <rect x="15" y="0" width="4" height="2" fill="#fff"/>
+  <rect x="13" y="6" width="3" height="3" fill="#333"/>
+  <rect x="18" y="6" width="3" height="3" fill="#333"/>
+  <rect x="15" y="11" width="2" height="1" fill="#333"/>
+  <rect x="4" y="16" width="4" height="4" fill="#fce8d5"/>
+</svg>`,
+        animClass: 'pet-anim-tilt'
+      },
+      talking: {
+        svg: `<svg viewBox="0 0 32 40" style="background:none">
+  <rect x="8" y="20" width="16" height="8" fill="#6b5b95"/>
+  <rect x="10" y="18" width="12" height="2" fill="#fff"/>
+  <rect x="6" y="28" width="20" height="6" fill="#333"/>
+  <rect x="6" y="34" width="6" height="6" fill="#6b5b95"/>
+  <rect x="20" y="34" width="6" height="6" fill="#6b5b95"/>
+  <rect x="10" y="4" width="12" height="12" fill="#fce8d5"/>
+  <rect x="8" y="0" width="16" height="4" fill="#e8e8e8"/>
+  <rect x="6" y="2" width="4" height="6" fill="#e8e8e8"/>
+  <rect x="22" y="2" width="4" height="6" fill="#e8e8e8"/>
+  <rect x="10" y="0" width="2" height="2" fill="#fff"/>
+  <rect x="20" y="0" width="2" height="2" fill="#fff"/>
+  <rect x="14" y="0" width="4" height="2" fill="#fff"/>
+  <rect x="12" y="7" width="3" height="4" fill="#333"/>
+  <rect x="17" y="7" width="3" height="4" fill="#333"/>
+  <rect x="13" y="12" width="6" height="2" fill="#333"/>
+  <rect x="14" y="13" width="4" height="1" fill="#fce8d5"/>
+</svg>`,
+        animClass: 'pet-anim-bob'
+      },
+      happy: {
+        svg: `<svg viewBox="0 0 32 40" style="background:none">
+  <rect x="8" y="20" width="16" height="8" fill="#6b5b95"/>
+  <rect x="10" y="18" width="12" height="2" fill="#fff"/>
+  <rect x="6" y="28" width="20" height="6" fill="#333"/>
+  <rect x="6" y="34" width="6" height="6" fill="#6b5b95"/>
+  <rect x="20" y="34" width="6" height="6" fill="#6b5b95"/>
+  <rect x="10" y="4" width="12" height="12" fill="#fce8d5"/>
+  <rect x="8" y="0" width="16" height="4" fill="#e8e8e8"/>
+  <rect x="6" y="2" width="4" height="6" fill="#e8e8e8"/>
+  <rect x="22" y="2" width="4" height="6" fill="#e8e8e8"/>
+  <rect x="10" y="0" width="2" height="2" fill="#fff"/>
+  <rect x="20" y="0" width="2" height="2" fill="#fff"/>
+  <rect x="14" y="0" width="4" height="2" fill="#fff"/>
+  <rect x="12" y="8" width="3" height="2" fill="#333"/>
+  <rect x="17" y="8" width="3" height="2" fill="#333"/>
+  <rect x="12" y="12" width="8" height="2" fill="#333"/>
+  <rect x="13" y="13" width="6" height="1" fill="#fce8d5"/>
+</svg>`,
+        animClass: 'pet-anim-bounce'
+      },
+      sad: {
+        svg: `<svg viewBox="0 0 32 40" style="background:none">
+  <rect x="8" y="22" width="16" height="8" fill="#6b5b95"/>
+  <rect x="10" y="20" width="12" height="2" fill="#fff"/>
+  <rect x="6" y="30" width="20" height="6" fill="#333"/>
+  <rect x="6" y="36" width="6" height="4" fill="#6b5b95"/>
+  <rect x="20" y="36" width="6" height="4" fill="#6b5b95"/>
+  <rect x="10" y="6" width="12" height="12" fill="#fce8d5"/>
+  <rect x="8" y="2" width="16" height="4" fill="#ccc"/>
+  <rect x="6" y="4" width="4" height="6" fill="#ccc"/>
+  <rect x="22" y="4" width="4" height="6" fill="#ccc"/>
+  <rect x="12" y="10" width="3" height="3" fill="#333"/>
+  <rect x="17" y="10" width="3" height="3" fill="#333"/>
+  <rect x="14" y="14" width="4" height="1" fill="#333"/>
+</svg>`,
+        animClass: ''
+      },
+      error: {
+        svg: `<svg viewBox="0 0 32 40" style="background:none">
+  <rect x="8" y="20" width="16" height="8" fill="#6b5b95"/>
+  <rect x="10" y="18" width="12" height="2" fill="#fff"/>
+  <rect x="6" y="28" width="20" height="6" fill="#333"/>
+  <rect x="6" y="34" width="6" height="6" fill="#6b5b95"/>
+  <rect x="20" y="34" width="6" height="6" fill="#6b5b95"/>
+  <rect x="10" y="4" width="12" height="12" fill="#fce8d5"/>
+  <rect x="8" y="0" width="16" height="4" fill="#e8e8e8"/>
+  <rect x="4" y="2" width="6" height="6" fill="#e8e8e8"/>
+  <rect x="22" y="2" width="6" height="6" fill="#e8e8e8"/>
+  <rect x="12" y="7" width="1" height="1" fill="#333"/>
+  <rect x="14" y="9" width="1" height="1" fill="#333"/>
+  <rect x="17" y="7" width="1" height="1" fill="#333"/>
+  <rect x="19" y="9" width="1" height="1" fill="#333"/>
+  <rect x="13" y="8" width="1" height="1" fill="#333"/>
+  <rect x="18" y="8" width="1" height="1" fill="#333"/>
+  <rect x="13" y="12" width="6" height="2" fill="#333"/>
+</svg>`,
+        animClass: 'pet-anim-shake'
+      }
+    },
+    lines: {
+      onThinking: ['让我想想…', '嗯…', '有意思…'],
+      onTool: function(t) { return '用一下 ' + t + '…'; },
+      onDone: ['好了，很轻松嘛！', '搞定了，不用谢我。', '朋友帮朋友，理所当然的。'],
+      onError: ['就这？再来！', '出问题了，再试一次。', '呃，失败了。'],
+      idle: ['有些问题不能问出来，一旦问出来，就阻止不了了。', '无聊…', '想吃巧克力机器人了。', '杀手家族出身，不过现在只想和朋友在一起。']
     }
-  } catch (e) {}
-  return defaultPos();
-}
+  };
 
-// Save position to localStorage
-function savePosition(pos) {
-  try {
-    localStorage.setItem('pet.position', JSON.stringify(pos));
-  } catch (e) {}
-}
+  // Character registry
+  var registry = { killua: killua };
 
-// Render current state SVG to stage
-function render() {
-  if (!pet.stage || !pet.char) return;
-  const stateData = pet.char.states[pet.state];
-  if (!stateData) return;
+  // Pet singleton state
+  var petState = {
+    active: null,
+    char: null,
+    state: 'idle',
+    stage: null,
+    position: { x: null, y: null },
+    lastBubble: '',
+    idleTimer: null,
+    textDeltaSeen: false
+  };
 
-  pet.stage.innerHTML = stateData.svg;
-  pet.stage.className.baseVal = 'pet-stage';
-  if (stateData.animClass) {
-    pet.stage.classList.add(stateData.animClass);
+  // Default position (right bottom)
+  function defaultPos() {
+    return {
+      x: window.innerWidth - 164,
+      y: window.innerHeight - 184
+    };
   }
 
-  // Apply position
-  if (pet.position.x !== null && pet.position.y !== null) {
-    pet.stage.style.right = 'auto';
-    pet.stage.style.bottom = 'auto';
-    pet.stage.style.left = pet.position.x + 'px';
-    pet.stage.style.top = pet.position.y + 'px';
+  // Clamp position to viewport
+  function clampPos(x, y) {
+    return {
+      x: Math.max(0, Math.min(window.innerWidth - 140, x)),
+      y: Math.max(0, Math.min(window.innerHeight - 160, y))
+    };
   }
-}
 
-// Pick random item from array or call function
-function randomLine(lines) {
-  if (typeof lines === 'function') return lines();
-  if (!Array.isArray(lines) || lines.length === 0) return '';
-  return lines[Math.floor(Math.random() * lines.length)];
-}
+  // Load saved position
+  function loadPosition() {
+    try {
+      var saved = localStorage.getItem('pet.position');
+      if (saved) return clampPos(JSON.parse(saved).x, JSON.parse(saved).y);
+    } catch (e) {}
+    return defaultPos();
+  }
 
-// Show bubble text near pet
-function say(text) {
-  if (!pet.stage || !text) return;
-  // Prevent repeat within 1s
-  if (text === pet.lastBubble) return;
-  pet.lastBubble = text;
+  // Save position
+  function savePosition(pos) {
+    try { localStorage.setItem('pet.position', JSON.stringify(pos)); } catch (e) {}
+  }
 
-  // Create bubble
-  const bubble = document.createElement('div');
-  bubble.className = 'pet-bubble';
-  bubble.textContent = text;
+  // Render current state
+  function render() {
+    if (!petState.stage || !petState.char) return;
+    var stateData = petState.char.states[petState.state];
+    if (!stateData) return;
 
-  // Position: above and left of stage
-  const stageRect = pet.stage.getBoundingClientRect();
-  bubble.style.left = Math.max(10, stageRect.left - 20) + 'px';
-  bubble.style.top = Math.max(10, stageRect.top - 50) + 'px';
+    petState.stage.innerHTML = stateData.svg;
+    petState.stage.className = 'pet-stage';
+    if (stateData.animClass) petState.stage.classList.add(stateData.animClass);
 
-  document.body.appendChild(bubble);
+    if (petState.position.x !== null) {
+      petState.stage.style.right = 'auto';
+      petState.stage.style.bottom = 'auto';
+      petState.stage.style.left = petState.position.x + 'px';
+      petState.stage.style.top = petState.position.y + 'px';
+    }
+  }
 
-  // Fade out after 3.5s
-  setTimeout(() => {
-    bubble.classList.add('fade-out');
-    setTimeout(() => bubble.remove(), 300);
-  }, 3500);
+  // Random line picker
+  function randomLine(lines) {
+    if (typeof lines === 'function') return lines();
+    if (!Array.isArray(lines) || lines.length === 0) return '';
+    return lines[Math.floor(Math.random() * lines.length)];
+  }
 
-  setTimeout(() => {
-    if (pet.lastBubble === text) pet.lastBubble = '';
-  }, 1000);
-}
+  // Show bubble
+  function say(text) {
+    if (!petState.stage || !text || text === petState.lastBubble) return;
+    petState.lastBubble = text;
 
-// Set pet state
-function setState(name) {
-  if (!pet.char || !pet.char.states[name]) return;
-  pet.state = name;
-  render();
-}
+    var bubble = document.createElement('div');
+    bubble.className = 'pet-bubble';
+    bubble.textContent = text;
 
-// Idle random actions
-function scheduleIdleAction() {
-  if (pet.idleTimer) clearTimeout(pet.idleTimer);
-  if (!pet.active || pet.state !== 'idle') return;
+    var rect = petState.stage.getBoundingClientRect();
+    bubble.style.left = Math.max(10, rect.left - 20) + 'px';
+    bubble.style.top = Math.max(10, rect.top - 50) + 'px';
 
-  // Random interval 30-90s
-  const delay = 30000 + Math.random() * 60000;
-  pet.idleTimer = setTimeout(() => {
-    if (pet.state !== 'idle') return;
-    // Pick random action: blink (rerender), talk, or jump
-    const action = Math.random();
-    if (action < 0.3) {
-      // Blink - briefly change eyes
+    document.body.appendChild(bubble);
+
+    setTimeout(function() {
+      bubble.classList.add('fade-out');
+      setTimeout(function() { bubble.remove(); }, 300);
+    }, 3500);
+
+    setTimeout(function() { if (petState.lastBubble === text) petState.lastBubble = ''; }, 1000);
+  }
+
+  // Set state
+  function setState(name) {
+    if (!petState.char || !petState.char.states[name]) return;
+    petState.state = name;
+    render();
+  }
+
+  // Idle action scheduler
+  function scheduleIdleAction() {
+    if (petState.idleTimer) clearTimeout(petState.idleTimer);
+    if (!petState.active || petState.state !== 'idle') return;
+
+    var delay = 30000 + Math.random() * 60000;
+    petState.idleTimer = setTimeout(function() {
+      if (petState.state !== 'idle') return;
+      var action = Math.random();
+      if (action < 0.3) render();
+      else if (action < 0.6) say(randomLine(petState.char.lines.idle));
+      else {
+        petState.stage.classList.add('pet-anim-bounce');
+        setTimeout(function() { petState.stage.classList.remove('pet-anim-bounce'); }, 500);
+      }
+      scheduleIdleAction();
+    }, delay);
+  }
+
+  // Handle stream events
+  function onStreamEvent(event) {
+    if (!petState.active || !petState.char) return;
+
+    var type = event.type;
+
+    switch (type) {
+      case '_send_start':
+        petState.textDeltaSeen = false;
+        setState('thinking');
+        say(randomLine(petState.char.lines.onThinking));
+        break;
+
+      case 'stream_event':
+        var delta = event.event && event.event.delta;
+        if (delta && delta.type === 'text_delta' && !petState.textDeltaSeen) {
+          petState.textDeltaSeen = true;
+          setState('talking');
+        }
+        // Tool use detection
+        var eventType = event.event && event.event.type;
+        if (eventType === 'content_block_start') {
+          var block = event.event.content_block;
+          if (block && block.type === 'tool_use') {
+            setState('thinking');
+            say(petState.char.lines.onTool(block.name));
+          }
+        }
+        break;
+
+      case 'result':
+        setState('happy');
+        setTimeout(function() { setState('idle'); }, 2000);
+        break;
+
+      case 'done':
+        setState('idle');
+        say(randomLine(petState.char.lines.onDone));
+        scheduleIdleAction();
+        break;
+
+      case 'error':
+        setState('error');
+        say(randomLine(petState.char.lines.onError));
+        setTimeout(function() { setState('idle'); }, 2000);
+        scheduleIdleAction();
+        break;
+    }
+  }
+
+  // Load character
+  function load(charId) {
+    if (charId === 'off') { unload(); return; }
+    var char = registry[charId];
+    if (!char) return;
+
+    petState.active = charId;
+    petState.char = char;
+    petState.state = 'idle';
+    petState.position = loadPosition();
+
+    petState.stage = document.getElementById('petStage');
+    if (petState.stage) {
+      petState.stage.hidden = false;
       render();
-    } else if (action < 0.6) {
-      // Say idle line
-      say(randomLine(pet.char.lines.idle));
-    } else {
-      // Small bounce
-      pet.stage.classList.add('pet-anim-bounce');
-      setTimeout(() => pet.stage.classList.remove('pet-anim-bounce'), 500);
+      setupDrag();
     }
     scheduleIdleAction();
-  }, delay);
-}
-
-// Handle SSE stream events
-function onStreamEvent(event) {
-  if (!pet.active || !pet.char) return;
-
-  switch (event.type) {
-    case '_send_start':
-      pet._textDeltaSeen = false;
-      setState('thinking');
-      say(randomLine(pet.char.lines.onThinking));
-      break;
-
-    case 'stream_event':
-      const delta = event.event?.delta;
-      if (delta?.type === 'thinking_delta') {
-        // Already thinking
-      } else if (delta?.type === 'text_delta' && !pet._textDeltaSeen) {
-        pet._textDeltaSeen = true;
-        setState('talking');
-      }
-
-      // Tool use
-      if (event.event?.type === 'content_block_start') {
-        const block = event.event.content_block;
-        if (block?.type === 'tool_use') {
-          setState('thinking');
-          say(pet.char.lines.onTool(block.name));
-        }
-      }
-      break;
-
-    case 'result':
-      const usage = event.usage || event.message?.usage || event.result?.usage;
-      if (usage) {
-        setState('happy');
-        setTimeout(() => setState('idle'), 2000);
-      }
-      break;
-
-    case 'done':
-      setState('idle');
-      say(randomLine(pet.char.lines.onDone));
-      scheduleIdleAction();
-      break;
-
-    case 'error':
-      setState('error');
-      say(randomLine(pet.char.lines.onError));
-      setTimeout(() => setState('idle'), 2000);
-      scheduleIdleAction();
-      break;
-  }
-}
-
-// Load a character
-function load(charId) {
-  if (charId === 'off') {
-    unload();
-    return;
+    try { localStorage.setItem('pet.active', charId); } catch (e) {}
   }
 
-  const char = registry[charId];
-  if (!char) return;
-
-  pet.active = charId;
-  pet.char = char;
-  pet.state = 'idle';
-  pet.position = loadPosition();
-
-  pet.stage = document.getElementById('petStage');
-  pet.stage.hidden = false;
-  render();
-
-  // Setup drag
-  setupDrag();
-
-  // Start idle
-  scheduleIdleAction();
-
-  // Persist choice
-  try {
-    localStorage.setItem('pet.active', charId);
-  } catch (e) {}
-}
-
-// Unload current pet
-function unload() {
-  if (pet.idleTimer) clearTimeout(pet.idleTimer);
-  pet.active = null;
-  pet.char = null;
-  pet.state = 'idle';
-
-  if (pet.stage) {
-    pet.stage.hidden = true;
-    pet.stage.innerHTML = '';
+  // Unload
+  function unload() {
+    if (petState.idleTimer) clearTimeout(petState.idleTimer);
+    petState.active = null;
+    petState.char = null;
+    petState.state = 'idle';
+    if (petState.stage) {
+      petState.stage.hidden = true;
+      petState.stage.innerHTML = '';
+    }
+    document.querySelectorAll('.pet-bubble').forEach(function(b) { b.remove(); });
+    try { localStorage.setItem('pet.active', 'off'); } catch (e) {}
   }
 
-  // Remove any bubbles
-  document.querySelectorAll('.pet-bubble').forEach(b => b.remove());
+  // Drag setup
+  function setupDrag() {
+    if (!petState.stage) return;
+    var dragging = false, startX, startY;
 
-  try {
-    localStorage.setItem('pet.active', 'off');
-  } catch (e) {}
-}
-
-// Setup drag functionality
-function setupDrag() {
-  if (!pet.stage) return;
-
-  let dragging = false;
-  let startX, startY;
-
-  pet.stage.addEventListener('pointerdown', (e) => {
-    dragging = true;
-    pet.stage.classList.add('dragging');
-    pet.stage.setPointerCapture(e.pointerId);
-    startX = e.clientX - pet.position.x;
-    startY = e.clientY - pet.position.y;
-  });
-
-  pet.stage.addEventListener('pointermove', (e) => {
-    if (!dragging) return;
-    requestAnimationFrame(() => {
-      const pos = clampPos(e.clientX - startX, e.clientY - startY);
-      pet.position = pos;
-      pet.stage.style.left = pos.x + 'px';
-      pet.stage.style.top = pos.y + 'px';
+    petState.stage.addEventListener('pointerdown', function(e) {
+      dragging = true;
+      petState.stage.classList.add('dragging');
+      petState.stage.setPointerCapture(e.pointerId);
+      startX = e.clientX - petState.position.x;
+      startY = e.clientY - petState.position.y;
     });
-  });
 
-  pet.stage.addEventListener('pointerup', (e) => {
-    if (!dragging) return;
-    dragging = false;
-    pet.stage.classList.remove('dragging');
-    pet.stage.releasePointerCapture(e.pointerId);
-    savePosition(pet.position);
-  });
-
-  // Double-click to reset position
-  pet.stage.addEventListener('dblclick', () => {
-    pet.position = defaultPos();
-    pet.stage.style.left = pet.position.x + 'px';
-    pet.stage.style.top = pet.position.y + 'px';
-    savePosition(pet.position);
-    render();
-  });
-}
-
-// Handle window resize - clamp position
-function onResize() {
-  if (!pet.active || !pet.stage) return;
-  const pos = clampPos(pet.position.x, pet.position.y);
-  if (pos.x !== pet.position.x || pos.y !== pet.position.y) {
-    pet.position = pos;
-    pet.stage.style.left = pos.x + 'px';
-    pet.stage.style.top = pos.y + 'px';
-    savePosition(pos);
-  }
-}
-
-// Initialize on module load
-function init() {
-  // Check localStorage for saved pet
-  let savedPet = 'killua';
-  try {
-    const saved = localStorage.getItem('pet.active');
-    if (saved === 'off') savedPet = 'off';
-    else if (saved && registry[saved]) savedPet = saved;
-  } catch (e) {}
-
-  // Setup selector UI
-  const btn = document.getElementById('petSelectorBtn');
-  const menu = document.getElementById('petSelectorMenu');
-
-  btn.addEventListener('click', () => {
-    menu.hidden = !menu.hidden;
-  });
-
-  menu.querySelectorAll('button').forEach(b => {
-    b.addEventListener('click', () => {
-      const petId = b.dataset.pet;
-      load(petId);
-      menu.hidden = true;
-
-      // Update active state in menu
-      menu.querySelectorAll('button').forEach(bb => {
-        bb.style.fontWeight = bb.dataset.pet === petId ? '600' : 'normal';
+    petState.stage.addEventListener('pointermove', function(e) {
+      if (!dragging) return;
+      requestAnimationFrame(function() {
+        var pos = clampPos(e.clientX - startX, e.clientY - startY);
+        petState.position = pos;
+        petState.stage.style.left = pos.x + 'px';
+        petState.stage.style.top = pos.y + 'px';
       });
     });
-  });
 
-  // Close menu on click outside
-  document.addEventListener('click', (e) => {
-    if (!btn.contains(e.target) && !menu.contains(e.target)) {
-      menu.hidden = true;
-    }
-  });
+    petState.stage.addEventListener('pointerup', function(e) {
+      if (!dragging) return;
+      dragging = false;
+      petState.stage.classList.remove('dragging');
+      petState.stage.releasePointerCapture(e.pointerId);
+      savePosition(petState.position);
+    });
 
-  // Window resize handler
-  window.addEventListener('resize', onResize);
-
-  // Load saved pet
-  if (savedPet !== 'off') {
-    // Mark active in menu
-    menu.querySelector(`button[data-pet="${savedPet}"]`)?.style.fontWeight = '600';
-    load(savedPet);
-  } else {
-    // Mark 'off' active
-    menu.querySelector('button[data-pet="off"]').style.fontWeight = '600';
+    petState.stage.addEventListener('dblclick', function() {
+      petState.position = defaultPos();
+      petState.stage.style.left = petState.position.x + 'px';
+      petState.stage.style.top = petState.position.y + 'px';
+      savePosition(petState.position);
+      render();
+    });
   }
-}
 
-// Export to window for app.js access
-window.pet = {
-  load,
-  unload,
-  say,
-  setState,
-  onStreamEvent
-};
+  // Resize handler
+  function onResize() {
+    if (!petState.active || !petState.stage) return;
+    var pos = clampPos(petState.position.x, petState.position.y);
+    if (pos.x !== petState.position.x || pos.y !== petState.position.y) {
+      petState.position = pos;
+      petState.stage.style.left = pos.x + 'px';
+      petState.stage.style.top = pos.y + 'px';
+      savePosition(pos);
+    }
+  }
 
-// Auto-init
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', init);
-} else {
-  init();
-}
+  // Init
+  function init() {
+    var savedPet = 'killua';
+    try {
+      var saved = localStorage.getItem('pet.active');
+      if (saved === 'off') savedPet = 'off';
+      else if (saved && registry[saved]) savedPet = saved;
+    } catch (e) {}
+
+    var btn = document.getElementById('petSelectorBtn');
+    var menu = document.getElementById('petSelectorMenu');
+    if (!btn || !menu) return;
+
+    btn.addEventListener('click', function(e) {
+      e.stopPropagation();
+      menu.hidden = !menu.hidden;
+    });
+
+    menu.querySelectorAll('button').forEach(function(b) {
+      b.addEventListener('click', function() {
+        var petId = b.dataset.pet;
+        load(petId);
+        menu.hidden = true;
+        menu.querySelectorAll('button').forEach(function(bb) {
+          bb.style.fontWeight = bb.dataset.pet === petId ? '600' : 'normal';
+        });
+      });
+    });
+
+    document.addEventListener('click', function(e) {
+      if (!btn.contains(e.target) && !menu.contains(e.target)) {
+        menu.hidden = true;
+      }
+    });
+
+    window.addEventListener('resize', onResize);
+
+    if (savedPet !== 'off') {
+      var activeBtn = menu.querySelector('button[data-pet="' + savedPet + '"]');
+      if (activeBtn) activeBtn.style.fontWeight = '600';
+      load(savedPet);
+    } else {
+      menu.querySelector('button[data-pet="off"]').style.fontWeight = '600';
+    }
+  }
+
+  // Export to window
+  window.pet = {
+    load: load,
+    unload: unload,
+    say: say,
+    setState: setState,
+    onStreamEvent: onStreamEvent
+  };
+
+  // Auto-init when DOM ready
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
+})();
