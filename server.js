@@ -3,18 +3,27 @@ const path = require('path');
 const fs = require('fs');
 const os = require('os');
 const crypto = require('crypto');
-const { spawn, exec } = require('child_process');
+const { exec } = require('child_process');
+const crossSpawn = require('cross-spawn');
 const readline = require('readline');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const CLAUDE_PATH = 'claude'; // auto-resolved via PATH, uses shell:true for cross-platform
+const CLAUDE_PATH = 'claude'; // cross-spawn resolves .cmd on Windows without shell
 const MAX_CONCURRENT = 3;
 const REQUEST_TIMEOUT_MS = 10 * 60 * 1000; // 10 minutes
 
 // Track SSE clients and active requests per conversation
 const sseClients = new Map();   // convId -> Set<response>
 const activeRequests = new Map(); // convId -> ChildProcess
+
+function killProc(proc) {
+  if (os.platform() === 'win32') {
+    exec(`taskkill /PID ${proc.pid} /T /F`);
+  } else {
+    try { process.kill(-proc.pid, 'SIGTERM'); } catch (e) { /* already dead */ }
+  }
+}
 
 // Ensure data directories exist
 const DATA_DIR = path.join(__dirname, 'data', 'conversations');
@@ -33,33 +42,49 @@ app.get('/api/health', (req, res) => {
 
 // ── Conversation CRUD ──
 
-function convPath(id) {
+const ID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function safePath(id) {
+  if (!ID_RE.test(id)) return null;
   return path.join(DATA_DIR, `${id}.json`);
 }
 
 function loadConversation(id) {
-  const p = convPath(id);
-  if (!fs.existsSync(p)) return null;
-  return JSON.parse(fs.readFileSync(p, 'utf-8'));
+  const p = safePath(id);
+  if (!p || !fs.existsSync(p)) return null;
+  try {
+    return JSON.parse(fs.readFileSync(p, 'utf-8'));
+  } catch (e) {
+    console.error(`[corrupt] ${p}: ${e.message}`);
+    return null;
+  }
 }
 
 function saveConversation(conv) {
-  fs.writeFileSync(convPath(conv.id), JSON.stringify(conv, null, 2), 'utf-8');
+  const p = safePath(conv.id);
+  const tmp = p + '.tmp';
+  fs.writeFileSync(tmp, JSON.stringify(conv, null, 2), 'utf-8');
+  fs.renameSync(tmp, p);
 }
 
 // GET /api/conversations - list all conversations
 app.get('/api/conversations', (req, res) => {
   const files = fs.readdirSync(DATA_DIR).filter(f => f.endsWith('.json'));
-  const conversations = files.map(f => {
-    const conv = JSON.parse(fs.readFileSync(path.join(DATA_DIR, f), 'utf-8'));
-    return {
-      id: conv.id,
-      title: conv.title,
-      createdAt: conv.createdAt,
-      updatedAt: conv.updatedAt,
-      messageCount: conv.messages.length,
-    };
-  });
+  const conversations = [];
+  for (const f of files) {
+    try {
+      const conv = JSON.parse(fs.readFileSync(path.join(DATA_DIR, f), 'utf-8'));
+      conversations.push({
+        id: conv.id,
+        title: conv.title,
+        createdAt: conv.createdAt,
+        updatedAt: conv.updatedAt,
+        messageCount: conv.messages.length,
+      });
+    } catch (e) {
+      console.error(`[corrupt] ${f}: ${e.message}`);
+    }
+  }
   conversations.sort((a, b) => b.updatedAt - a.updatedAt);
   res.json({ conversations });
 });
@@ -71,6 +96,7 @@ app.post('/api/conversations', (req, res) => {
     id: crypto.randomUUID(),
     title: title || 'New Conversation',
     messages: [],
+    sessionStarted: false,
     createdAt: Date.now(),
     updatedAt: Date.now(),
   };
@@ -80,6 +106,7 @@ app.post('/api/conversations', (req, res) => {
 
 // GET /api/conversations/:id - get conversation details
 app.get('/api/conversations/:id', (req, res) => {
+  if (!ID_RE.test(req.params.id)) return res.status(400).json({ error: 'Invalid conversation ID' });
   const conv = loadConversation(req.params.id);
   if (!conv) return res.status(404).json({ error: 'Conversation not found' });
   res.json(conv);
@@ -87,8 +114,11 @@ app.get('/api/conversations/:id', (req, res) => {
 
 // DELETE /api/conversations/:id - delete conversation
 app.delete('/api/conversations/:id', (req, res) => {
-  const p = convPath(req.params.id);
+  const p = safePath(req.params.id);
+  if (!p) return res.status(400).json({ error: 'Invalid conversation ID' });
   if (!fs.existsSync(p)) return res.status(404).json({ error: 'Conversation not found' });
+  const proc = activeRequests.get(req.params.id);
+  if (proc) { killProc(proc); activeRequests.delete(req.params.id); }
   fs.unlinkSync(p);
   res.json({ success: true });
 });
@@ -116,6 +146,7 @@ function closeSSE(convId) {
 // GET /api/conversations/:id/stream - SSE endpoint
 app.get('/api/conversations/:id/stream', (req, res) => {
   const { id } = req.params;
+  if (!ID_RE.test(id)) return res.status(400).json({ error: 'Invalid conversation ID' });
   if (!loadConversation(id)) {
     return res.status(404).json({ error: 'Conversation not found' });
   }
@@ -145,6 +176,7 @@ app.get('/api/conversations/:id/stream', (req, res) => {
 // POST /api/conversations/:id/send - send a message
 app.post('/api/conversations/:id/send', async (req, res) => {
   const { id } = req.params;
+  if (!ID_RE.test(id)) return res.status(400).json({ error: 'Invalid conversation ID' });
   const { prompt } = req.body || {};
 
   if (!prompt || !prompt.trim()) {
@@ -176,7 +208,7 @@ app.post('/api/conversations/:id/send', async (req, res) => {
   saveConversation(conv);
 
   // Build Claude CLI arguments
-  const isFirstMessage = conv.messages.length === 1; // only the user message we just added
+  const isFirstMessage = !conv.sessionStarted;
   const sessionName = `web-conv-${id}`;
   const args = [
     '--print',
@@ -192,12 +224,14 @@ app.post('/api/conversations/:id/send', async (req, res) => {
   }
   args.push('--', prompt.trim());
 
-  console.log(`[claude] spawning: claude ${args.join(' ')}`);
+  console.log(`[claude] spawn isFirst=${isFirstMessage} promptLen=${prompt.length}`);
 
-  const claude = spawn(CLAUDE_PATH, args, {
-    shell: true,
+  const claude = crossSpawn(CLAUDE_PATH, args, {
+    shell: false,
+    detached: process.platform !== 'win32',
     cwd: process.cwd(),
-    env: { ...process.env },
+    env: process.env,
+    windowsHide: true,
   });
 
   activeRequests.set(id, claude);
@@ -228,63 +262,47 @@ app.post('/api/conversations/:id/send', async (req, res) => {
     stderrOutput += data.toString();
   });
 
-  claude.on('close', (code) => {
+  let finalized = false;
+  function finalize(reason, code) {
+    if (finalized) return;
+    finalized = true;
+    clearTimeout(timeout);
     activeRequests.delete(id);
 
-    // Save assistant message
-    const finalText = fullText || '(no response)';
-    conv.messages.push({ role: 'assistant', content: finalText, timestamp: Date.now() });
+    const text = reason === 'timeout' ? '(request timed out)'
+               : reason === 'error'   ? `(error: ${code})`
+               : (fullText || '(no response)');
+    conv.messages.push({ role: 'assistant', content: text, timestamp: Date.now() });
     conv.updatedAt = Date.now();
+    if (reason === 'ok') conv.sessionStarted = true;
     saveConversation(conv);
 
-    // Notify SSE clients
-    broadcastSSE(id, { type: 'done', code, text: finalText });
+    broadcastSSE(id, { type: 'done', code, text });
     closeSSE(id);
+    if (!res.headersSent) res.json({ success: reason === 'ok', exitCode: code });
+  }
 
-    if (stderrOutput) {
-      console.error(`[claude stderr] ${stderrOutput}`);
-    }
-
-    // Send HTTP response
-    if (!res.headersSent) {
-      res.json({ success: code === 0, message: conv.messages[conv.messages.length - 1], exitCode: code });
-    }
-  });
-
-  claude.on('error', (err) => {
-    activeRequests.delete(id);
-    broadcastSSE(id, { type: 'error', message: err.message });
-    closeSSE(id);
-    console.error(`[claude error] ${err.message}`);
-  });
-
-  // Timeout safety
+  claude.on('close', (code) => finalize(code === 0 ? 'ok' : 'error', code));
+  claude.on('error', (err) => { console.error(err); finalize('error', -1); });
   const timeout = setTimeout(() => {
-    if (!isComplete && activeRequests.has(id)) {
-      console.log(`[claude] timeout, killing process for conv ${id}`);
-      const proc = activeRequests.get(id);
-      if (proc) {
-        if (os.platform() === 'win32') {
-          exec(`taskkill /PID ${proc.pid} /T /F`);
-        } else {
-          process.kill(-proc.pid, 'SIGTERM');
-        }
-      }
-      activeRequests.delete(id);
-      broadcastSSE(id, { type: 'error', message: 'Request timed out' });
-      closeSSE(id);
-
-      conv.messages.push({ role: 'assistant', content: '(request timed out)', timestamp: Date.now() });
-      conv.updatedAt = Date.now();
-      saveConversation(conv);
+    console.log(`[claude] timeout, killing process for conv ${id}`);
+    const proc = activeRequests.get(id);
+    if (proc) {
+      killProc(proc);
     }
+    finalize('timeout', -1);
   }, REQUEST_TIMEOUT_MS);
+});
 
-  // Clean up timeout if process exits normally
-  claude.on('close', () => clearTimeout(timeout));
+// POST /api/conversations/:id/abort - stop generation
+app.post('/api/conversations/:id/abort', (req, res) => {
+  if (!ID_RE.test(req.params.id)) return res.status(400).json({ error: 'Invalid conversation ID' });
+  const proc = activeRequests.get(req.params.id);
+  if (proc) killProc(proc);
+  res.json({ ok: true });
 });
 
 // Start server
-app.listen(PORT, () => {
+app.listen(PORT, '127.0.0.1', () => {
   console.log(`Claude Web running at http://localhost:${PORT}`);
 });

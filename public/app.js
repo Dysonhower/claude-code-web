@@ -36,13 +36,7 @@ if (typeof marked !== 'undefined') {
 
 function renderMarkdown(text) {
   if (typeof marked === 'undefined') return escapeHtml(text);
-  let html = marked.parse(text);
-  // Basic XSS sanitization: strip script tags
-  html = html.replace(/<script[\s\S]*?<\/script>/gi, '');
-  html = html.replace(/<script[\s\S]*?\/>/gi, '');
-  html = html.replace(/on\w+="[^"]*"/gi, '');
-  html = html.replace(/on\w+='[^']*'/gi, '');
-  return html;
+  return DOMPurify.sanitize(marked.parse(text));
 }
 
 function escapeHtml(text) {
@@ -97,6 +91,7 @@ async function createConversation() {
       messageCount: 0,
     });
     renderSidebar();
+    state._prevUsage = null;
     selectConversation(conv.id);
   } catch (e) {
     console.error('Failed to create conversation:', e);
@@ -289,17 +284,17 @@ function addToolUse(parentEl, toolName, toolInput) {
 
 // ── SSE ──
 
-function openSSE(convId) {
+function openSSE(convId, onReady) {
   closeSSE();
 
   const es = new EventSource(`/api/conversations/${convId}/stream`);
   state.eventSource = es;
 
-  // Create a streaming bubble for the assistant response
   const bubble = addMessageBubble('assistant', '');
   bubble.dataset.rawText = '';
   lastAssistantBubble = bubble;
 
+  es.onopen = () => { if (onReady) onReady(); };
   es.onmessage = (e) => {
     try {
       const event = JSON.parse(e.data);
@@ -401,7 +396,8 @@ function handleSSEEvent(event, bubble) {
 
     case 'result':
       finalizeStreamingBubble(bubble);
-      if (event.usage) showTokenStats(event.usage);
+      const usage = event.usage || event.message?.usage || event.result?.usage;
+      if (usage) showTokenStats(usage);
       break;
 
     case 'done':
@@ -435,6 +431,10 @@ function closeSSE() {
   if (state.eventSource) {
     state.eventSource.close();
     state.eventSource = null;
+  }
+  // Remove empty assistant bubble if aborting early
+  if (lastAssistantBubble && !lastAssistantBubble.dataset.rawText) {
+    lastAssistantBubble.remove();
   }
   thinkingAccumulator = '';
   thinkingBlockEl = null;
@@ -472,7 +472,11 @@ function showTokenStats(usage) {
 function enableInput(enabled) {
   dom.chatInput.disabled = !enabled;
   dom.btnSend.disabled = !enabled;
-  if (enabled) state.isStreaming = false;
+  if (enabled) {
+    state.isStreaming = false;
+    dom.btnSend.textContent = 'Send';
+    dom.btnSend.classList.remove('btn-stop');
+  }
 }
 
 async function sendMessage() {
@@ -481,39 +485,56 @@ async function sendMessage() {
 
   state.isStreaming = true;
   dom.chatInput.value = '';
-  dom.btnSend.disabled = true;
+  dom.chatInput.disabled = true;
+  dom.btnSend.textContent = 'Stop';
+  dom.btnSend.classList.add('btn-stop');
+  dom.btnSend.disabled = false;
   state._statusLines = [];
   dom.status.innerHTML = '';
   dom.status.classList.add('visible');
   pushStatus('Connecting...');
 
-  // Add user bubble
   addMessageBubble('user', prompt);
 
-  // Open SSE before sending — so we don't miss events
-  openSSE(state.activeId);
+  openSSE(state.activeId, async () => {
+    try {
+      await api('POST', `/api/conversations/${state.activeId}/send`, { prompt });
+    } catch (e) {
+      closeSSE();
+      addMessageBubble('assistant', `Error: ${e.message}`);
+      enableInput(true);
+      state._statusLines = [];
+      dom.status.textContent = 'Error';
+      dom.status.classList.add('visible');
+      setTimeout(() => dom.status.classList.remove('visible'), 4000);
+    }
+  });
+}
 
+async function abortRequest() {
+  if (!state.activeId || !state.isStreaming) return;
   try {
-    await api('POST', `/api/conversations/${state.activeId}/send`, { prompt });
-    // Response handled via SSE
+    await api('POST', `/api/conversations/${state.activeId}/abort`);
   } catch (e) {
-    closeSSE();
-    addMessageBubble('assistant', `Error: ${e.message}`);
-    enableInput(true);
-    state._statusLines = [];
-    dom.status.textContent = 'Error';
-    dom.status.classList.add('visible');
-    setTimeout(() => dom.status.classList.remove('visible'), 4000);
-    state.isStreaming = false;
+    console.error('Abort failed:', e);
   }
+  closeSSE();
+  enableInput(true);
+  state._statusLines = [];
+  dom.status.textContent = 'Stopped';
+  dom.status.classList.add('visible');
+  setTimeout(() => dom.status.classList.remove('visible'), 4000);
 }
 
 // ── Event listeners ──
 
-dom.btnSend.addEventListener('click', sendMessage);
+dom.btnSend.addEventListener('click', () => {
+  if (state.isStreaming) abortRequest();
+  else sendMessage();
+});
 
 dom.chatInput.addEventListener('keydown', (e) => {
-  if (e.key === 'Enter' && !e.shiftKey) {
+  if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) {
     e.preventDefault();
     sendMessage();
   }

@@ -401,6 +401,14 @@ html, body {
   cursor: not-allowed;
 }
 
+.chat-input-bar button.btn-stop {
+  background: var(--danger);
+}
+
+.chat-input-bar button.btn-stop:hover {
+  background: #c03040;
+}
+
 /* ── Status ── */
 .status {
   position: fixed;
