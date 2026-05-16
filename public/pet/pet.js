@@ -35,7 +35,8 @@
     position: { x: null, y: null },
     lastBubble: '',
     idleTimer: null,
-    textDeltaSeen: false
+    textDeltaSeen: false,
+    currentBubble: null  // current bubble element
   };
 
   // Default position (right bottom)
@@ -108,27 +109,47 @@
     return lines[Math.floor(Math.random() * lines.length)];
   }
 
+  // Update bubble position relative to pet stage
+  function updateBubblePosition() {
+    if (!petState.currentBubble || !petState.stage) return;
+    var rect = petState.stage.getBoundingClientRect();
+    var bubbleWidth = petState.currentBubble.offsetWidth || 200;
+    // Position bubble centered above the pet
+    petState.currentBubble.style.left = Math.max(10, rect.left + (rect.width / 2) - (bubbleWidth / 2)) + 'px';
+    petState.currentBubble.style.top = Math.max(10, rect.top - 60) + 'px';
+  }
+
   // Show bubble
   function say(text) {
     if (!petState.stage || !text || text === petState.lastBubble) return;
     petState.lastBubble = text;
 
+    // Remove existing bubble if present
+    if (petState.currentBubble) {
+      petState.currentBubble.remove();
+      petState.currentBubble = null;
+    }
+
     var bubble = document.createElement('div');
     bubble.className = 'pet-bubble';
     bubble.textContent = text;
 
-    var rect = petState.stage.getBoundingClientRect();
-    bubble.style.left = Math.max(10, rect.left - 20) + 'px';
-    bubble.style.top = Math.max(10, rect.top - 50) + 'px';
-
     document.body.appendChild(bubble);
+    petState.currentBubble = bubble;
 
+    // Position bubble
+    updateBubblePosition();
+
+    // Fade out after 6 seconds
     setTimeout(function() {
       bubble.classList.add('fade-out');
-      setTimeout(function() { bubble.remove(); }, 300);
-    }, 3500);
+      setTimeout(function() {
+        bubble.remove();
+        if (petState.currentBubble === bubble) petState.currentBubble = null;
+      }, 300);
+    }, 6000);
 
-    setTimeout(function() { if (petState.lastBubble === text) petState.lastBubble = ''; }, 1000);
+    setTimeout(function() { if (petState.lastBubble === text) petState.lastBubble = ''; }, 1500);
   }
 
   // Set state
@@ -236,6 +257,7 @@
     petState.char = null;
     petState.state = 'idle';
     petState.imgEl = null;
+    petState.currentBubble = null;
     if (petState.stage) {
       petState.stage.hidden = true;
       petState.stage.innerHTML = '';
@@ -264,6 +286,7 @@
         petState.position = pos;
         petState.stage.style.left = pos.x + 'px';
         petState.stage.style.top = pos.y + 'px';
+        updateBubblePosition();
       });
     });
 

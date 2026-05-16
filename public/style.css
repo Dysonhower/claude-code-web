@@ -555,26 +555,43 @@ html, body {
   position: fixed;
   background: var(--bg-bubble-assistant);
   border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 8px 12px;
-  font-size: 13px;
+  border-radius: 12px;
+  padding: 10px 14px;
+  font-size: 14px;
   color: var(--text);
-  max-width: 200px;
+  max-width: 240px;
+  min-width: 80px;
   z-index: 41;
   animation: petBubbleIn 0.3s ease;
   pointer-events: none;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  text-align: center;
 }
 
 .pet-bubble::after {
   content: '';
   position: absolute;
-  bottom: -8px;
-  left: 20px;
+  bottom: -10px;
+  left: 50%;
+  transform: translateX(-50%);
   width: 0;
   height: 0;
-  border-left: 8px solid transparent;
-  border-right: 8px solid transparent;
-  border-top: 8px solid var(--bg-bubble-assistant);
+  border-left: 10px solid transparent;
+  border-right: 10px solid transparent;
+  border-top: 10px solid var(--bg-bubble-assistant);
+}
+
+.pet-bubble::before {
+  content: '';
+  position: absolute;
+  bottom: -11px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  height: 0;
+  border-left: 11px solid transparent;
+  border-right: 11px solid transparent;
+  border-top: 11px solid var(--border);
 }
 
 .pet-bubble.fade-out {
