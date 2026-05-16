@@ -410,7 +410,7 @@ html, body {
 /* ── Status ── */
 .status {
   position: fixed;
-  bottom: 200px;
+  bottom: 340px;
   right: 20px;
   background: var(--bg-bubble-assistant);
   border: 1px solid var(--border);
@@ -515,8 +515,8 @@ html, body {
   position: fixed;
   right: 24px;
   bottom: 24px;
-  width: 140px;
-  height: 160px;
+  width: 280px;
+  height: 320px;
   z-index: 40;
   cursor: grab;
   user-select: none;
@@ -663,8 +663,8 @@ html, body {
   }
 
   .pet-stage {
-    width: 100px;
-    height: 120px;
+    width: 200px;
+    height: 240px;
     right: 12px;
     bottom: 12px;
   }
@@ -675,7 +675,7 @@ html, body {
   }
 
   .status {
-    bottom: 140px;
+    bottom: 260px;
     right: 12px;
   }
 }

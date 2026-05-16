@@ -41,16 +41,16 @@
   // Default position (right bottom)
   function defaultPos() {
     return {
-      x: window.innerWidth - 164,
-      y: window.innerHeight - 184
+      x: window.innerWidth - 304,
+      y: window.innerHeight - 344
     };
   }
 
   // Clamp position to viewport
   function clampPos(x, y) {
     return {
-      x: Math.max(0, Math.min(window.innerWidth - 140, x)),
-      y: Math.max(0, Math.min(window.innerHeight - 160, y))
+      x: Math.max(0, Math.min(window.innerWidth - 280, x)),
+      y: Math.max(0, Math.min(window.innerHeight - 320, y))
     };
   }
 
