@@ -309,16 +309,13 @@
     petState.currentBubble.style.top = Math.max(10, rect.top - 60) + 'px';
   }
 
-  // Show bubble
+  // Show bubble (skip if current bubble still visible)
   function say(text) {
     if (!petState.stage || !text || text === petState.lastBubble) return;
-    petState.lastBubble = text;
+    // Skip if current bubble is still visible
+    if (petState.currentBubble) return;
 
-    // Remove existing bubble if present
-    if (petState.currentBubble) {
-      petState.currentBubble.remove();
-      petState.currentBubble = null;
-    }
+    petState.lastBubble = text;
 
     var bubble = document.createElement('div');
     bubble.className = 'pet-bubble';
@@ -354,7 +351,7 @@
     if (petState.idleTimer) clearTimeout(petState.idleTimer);
     if (!petState.active || petState.state !== 'idle') return;
 
-    var delay = 20000 + Math.random() * 30000; // 20-50秒
+    var delay = 5000 + Math.random() * 10000; // 5-15秒，平均10秒
     petState.idleTimer = setTimeout(function() {
       if (petState.state !== 'idle') return;
       var action = Math.random();
