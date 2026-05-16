@@ -287,11 +287,6 @@
     }
   }
 
-  // Should show bubble? (50% chance)
-  function shouldSay() {
-    return Math.random() < 0.5;
-  }
-
   // Random line picker
   function randomLine(lines) {
     if (typeof lines === 'function') return lines();
@@ -384,7 +379,7 @@
       case '_send_start':
         petState.textDeltaSeen = false;
         setState('thinking');
-        if (shouldSay()) say(randomLine(petState.char.lines.onThinking));
+        say(randomLine(petState.char.lines.onThinking)); // 100%
         break;
 
       case 'stream_event':
@@ -398,25 +393,25 @@
           var block = event.event.content_block;
           if (block && block.type === 'tool_use') {
             setState('thinking');
-            if (shouldSay()) say(petState.char.lines.onTool(block.name));
+            say(petState.char.lines.onTool(block.name)); // 100%
           }
         }
         break;
 
       case 'result':
         setState('happy');
+        say(randomLine(petState.char.lines.onDone)); // 100%
         setTimeout(function() { setState('idle'); }, 2000);
         break;
 
       case 'done':
         setState('idle');
-        if (shouldSay()) say(randomLine(petState.char.lines.onDone));
         scheduleIdleAction();
         break;
 
       case 'error':
         setState('error');
-        if (shouldSay()) say(randomLine(petState.char.lines.onError));
+        say(randomLine(petState.char.lines.onError)); // 100%
         setTimeout(function() { setState('idle'); }, 2000);
         scheduleIdleAction();
         break;
