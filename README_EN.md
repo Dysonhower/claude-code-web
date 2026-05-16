@@ -1,5 +1,7 @@
 # Claude Web
 
+[中文文档](README.md)
+
 A web frontend wrapper for Claude Code CLI, providing a browser interface to interact with Claude.
 
 ## Features
@@ -9,7 +11,7 @@ A web frontend wrapper for Claude Code CLI, providing a browser interface to int
 - 🛠️ **Tool Call Visualization** — Show tools executed by Claude and their results
 - 🧠 **Thinking Block Display** — Collapsible thinking process visualization
 - ⏹️ **Stop Generation** — Abort long-running requests at any time
-- 📊 **Token Statistics** — Display input/output token count for each response
+- 🐱 **Desktop Pet System** — Interactive character pets synced with Claude tasks
 
 ## Security Notice
 
@@ -22,6 +24,7 @@ Recommended for local development only. Do not expose to public networks.
 ### Install Dependencies
 
 ```bash
+cd [your claude web location]
 npm install
 ```
 
@@ -38,6 +41,123 @@ Access http://localhost:3000 after startup.
 
 - Node.js 18+
 - Claude Code CLI installed with API key configured
+
+---
+
+## Pet System
+
+The desktop pet is a unique feature that provides an interactive character synced with SSE event stream during Claude tasks.
+
+### Available Characters
+
+| Character | Source | Personality |
+|-----------|--------|-------------|
+| Killua (奇犽) | Hunter × Hunter | Assassin background, confident and calm |
+| Ayanami Rei (绫波丽) | Neon Genesis Evangelion | EVA pilot, quiet, emotionless |
+
+### State Machine
+
+Each character has 6 states triggered by SSE events:
+
+| State | Trigger | Animation | Bubble Chance |
+|-------|---------|-----------|---------------|
+| idle | Default/Idle | Breathing | 60% (every ~10s) |
+| thinking | Task start, tool call | Head tilt | **100%** |
+| talking | Text output | Bobbing | — |
+| happy | Task complete | Bouncing | **100%** |
+| sad | Depressed | None | — |
+| error | Failure | Shaking | **100%** |
+
+### Bubble System
+
+- **Position**: Fixed above pet head, centered
+- **Duration**: 6 seconds before fade out
+- **Frequency**:
+  - Non-idle states (task-related): **100%** always show
+  - Idle state: Average every **10 seconds**, 60% chance to show
+- **Overlap**: New bubble replaces existing one
+- **Drag Sync**: Bubble position follows pet during drag
+
+### SSE Event Flow
+
+```javascript
+// pet.js core events
+switch (event.type) {
+  case '_send_start':  // Send message → thinking + bubble
+  case 'stream_event': // text_delta → talking; tool_use → thinking + bubble
+  case 'result':       // Complete → happy + bubble
+  case 'done':         // End → idle
+  case 'error':        // Error → error + bubble
+}
+```
+
+### File Structure
+
+```
+public/pet/
+├── pet.js             # Main controller: state, events, drag, bubbles
+└── images/
+    ├── killua/        # Killua character images
+    │   ├── killua_idle.png
+    │   ├── killua_thinking.png
+    │   ├── killua_talking.png
+    │   ├── killua_happy.png
+    │   ├── killua_sad.png
+    │   └── killua_error.png
+    └── ayanami/       # Ayanami Rei character images
+        ├── ayanami_idle.png
+        ├── ayanami_thinking.png
+        ├── ayanami_talking.png
+        ├── ayanami_happy.png
+        ├── ayanami_sad.png
+        └── ayanami_error.png
+```
+
+### Adding New Characters
+
+1. Add character data in `pet.js`:
+
+```javascript
+var newCharacter = {
+  id: 'character_id',
+  name: 'Character Name',
+  basePath: '/pet/images/character_id/',
+  states: {
+    idle:     { image: 'character_idle.png',     animClass: 'pet-anim-breathe' },
+    thinking: { image: 'character_thinking.png', animClass: 'pet-anim-tilt' },
+    talking:  { image: 'character_talking.png',  animClass: 'pet-anim-bob' },
+    happy:    { image: 'character_happy.png',    animClass: 'pet-anim-bounce' },
+    sad:      { image: 'character_sad.png',      animClass: '' },
+    error:    { image: 'character_error.png',    animClass: 'pet-anim-shake' }
+  },
+  lines: {
+    onThinking: ['Line 1', 'Line 2', ...],
+    onTool: function(t) { return 'Using ' + t; },
+    onDone: ['Done line 1', ...],
+    onError: ['Error line 1', ...],
+    idle: ['Idle line 1', ...]
+  }
+};
+
+registry.character_id = newCharacter;
+```
+
+2. Upload 6 PNG images (recommended: 280×320 pixels)
+
+3. Add to dropdown menu in `index.html`:
+
+```html
+<button data-pet="character_id">Character Name 🌸</button>
+```
+
+### User Interaction
+
+- **Select Character**: Click "🐾 Pet" button in header, choose from dropdown
+- **Drag to Move**: Hold and drag character, position saved to localStorage
+- **Double-click Reset**: Return character to default position
+- **Disable Pet**: Choose "关闭" option, persists across sessions
+
+---
 
 ## Security Hardening
 
@@ -61,8 +181,11 @@ claude-web/
 ├── start.bat           # Windows startup script
 ├── public/
 │   ├── index.html      # Main page
-│   ├── app.js          # Frontend logic
-│   └── style.css       # Stylesheet
+│   ├── app.js          # Frontend logic (SSE handling)
+│   ├── style.css       # Stylesheet
+│   └── pet/            # Pet system
+│       ├── pet.js      # Pet controller
+│       └── images/     # Character images
 └── data/
     └── conversations/  # Conversation data storage (JSON)
 ```
