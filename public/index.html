@@ -9,15 +9,11 @@
 </head>
 <body>
   <div class="app">
-    <!-- Header -->
-    <header class="header">
-      <h1>Claude Web</h1>
-      <span class="header-badge">--dangerously-skip-permissions</span>
-      <button class="btn-new" id="btnNewConv">+ New Conversation</button>
-    </header>
-
     <!-- Sidebar -->
     <aside class="sidebar" id="sidebar">
+      <div class="sidebar-top">
+        <button class="btn-new" id="btnNewConv">+ New Conversation</button>
+      </div>
       <div class="sidebar-list" id="convList"></div>
       <div class="sidebar-empty" id="sidebarEmpty">No conversations yet.</div>
     </aside>
@@ -43,9 +39,21 @@
     <div class="status" id="status"></div>
   </div>
 
+  <!-- Pet selector -->
+  <button class="pet-selector-btn" id="petSelectorBtn" title="桌宠">🐾</button>
+  <div class="pet-selector-menu" id="petSelectorMenu" hidden>
+    <button data-pet="off">关闭</button>
+    <button data-pet="killua">奇犽</button>
+    <button data-pet="other" disabled>其他角色（敬请期待）</button>
+  </div>
+
+  <!-- Pet stage -->
+  <div class="pet-stage" id="petStage" hidden></div>
+
   <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.0/marked.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.9/purify.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script type="module" src="/pet/pet.js"></script>
   <script src="/app.js"></script>
 </body>
 </html>

@@ -30,41 +30,29 @@ html, body {
 .app {
   display: grid;
   grid-template-columns: 280px 1fr;
-  grid-template-rows: 52px 1fr;
-  grid-template-areas:
-    "header header"
-    "sidebar chat";
+  grid-template-rows: 1fr;
+  grid-template-areas: "sidebar chat";
   height: 100vh;
 }
 
-/* ── Header ── */
-.header {
-  grid-area: header;
+/* ── Sidebar ── */
+.sidebar {
+  grid-area: sidebar;
   display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 0 20px;
+  flex-direction: column;
   background: var(--bg-sidebar);
+  border-right: 1px solid var(--border);
+  overflow: hidden;
+}
+
+.sidebar-top {
+  padding: 12px;
   border-bottom: 1px solid var(--border);
 }
 
-.header h1 {
-  font-size: 18px;
-  font-weight: 600;
-}
-
-.header-badge {
-  font-size: 11px;
-  color: var(--warning);
-  background: rgba(208, 120, 48, 0.08);
-  padding: 2px 8px;
-  border-radius: 4px;
-  font-family: monospace;
-}
-
 .btn-new {
-  margin-left: auto;
-  padding: 6px 14px;
+  width: 100%;
+  padding: 10px 14px;
   background: var(--accent);
   color: #fff;
   border: none;
@@ -72,21 +60,17 @@ html, body {
   cursor: pointer;
   font-size: 13px;
   font-weight: 500;
+  display: flex;
+  justify-content: center;
 }
 
 .btn-new:hover {
   background: #3060d0;
 }
 
-/* ── Sidebar ── */
-.sidebar {
-  grid-area: sidebar;
-  background: var(--bg-sidebar);
-  border-right: 1px solid var(--border);
-  overflow-y: auto;
-}
-
 .sidebar-list {
+  flex: 1;
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
   padding: 8px;
@@ -426,7 +410,7 @@ html, body {
 /* ── Status ── */
 .status {
   position: fixed;
-  bottom: 80px;
+  bottom: 200px;
   right: 20px;
   background: var(--bg-bubble-assistant);
   border: 1px solid var(--border);
@@ -464,20 +448,190 @@ html, body {
   background: #555;
 }
 
+/* ── Pet Selector ── */
+.pet-selector-btn {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  width: 40px;
+  height: 40px;
+  background: var(--bg-bubble-assistant);
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+  transition: background 0.15s;
+}
+
+.pet-selector-btn:hover {
+  background: var(--bg-sidebar);
+}
+
+.pet-selector-menu {
+  position: fixed;
+  top: 60px;
+  right: 16px;
+  background: var(--bg-bubble-assistant);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 4px 0;
+  z-index: 50;
+  min-width: 160px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.pet-selector-menu button {
+  display: block;
+  width: 100%;
+  padding: 10px 16px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+  color: var(--text);
+  text-align: left;
+  transition: background 0.15s;
+}
+
+.pet-selector-menu button:hover:not(:disabled) {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+.pet-selector-menu button:disabled {
+  color: var(--text-muted);
+  cursor: not-allowed;
+}
+
+.pet-selector-menu button[data-pet="killua"]::after {
+  content: " 🐱";
+}
+
+/* ── Pet Stage ── */
+.pet-stage {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  width: 140px;
+  height: 160px;
+  z-index: 40;
+  cursor: grab;
+  user-select: none;
+}
+
+.pet-stage.dragging {
+  cursor: grabbing;
+}
+
+.pet-stage svg {
+  width: 100%;
+  height: 100%;
+}
+
+/* ── Pet Bubble ── */
+.pet-bubble {
+  position: fixed;
+  background: var(--bg-bubble-assistant);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 13px;
+  color: var(--text);
+  max-width: 200px;
+  z-index: 41;
+  animation: petBubbleIn 0.3s ease;
+  pointer-events: none;
+}
+
+.pet-bubble::after {
+  content: '';
+  position: absolute;
+  bottom: -8px;
+  left: 20px;
+  width: 0;
+  height: 0;
+  border-left: 8px solid transparent;
+  border-right: 8px solid transparent;
+  border-top: 8px solid var(--bg-bubble-assistant);
+}
+
+.pet-bubble.fade-out {
+  animation: petBubbleOut 0.3s ease forwards;
+}
+
+@keyframes petBubbleIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes petBubbleOut {
+  from { opacity: 1; transform: translateY(0); }
+  to { opacity: 0; transform: translateY(-10px); }
+}
+
+/* ── Pet Animations ── */
+.pet-anim-breathe {
+  animation: petBreathe 3s ease-in-out infinite;
+}
+
+.pet-anim-tilt {
+  animation: petTilt 1.5s ease-in-out infinite;
+}
+
+.pet-anim-bob {
+  animation: petBob 0.8s ease-in-out infinite;
+}
+
+.pet-anim-bounce {
+  animation: petBounce 0.5s ease;
+}
+
+.pet-anim-shake {
+  animation: petShake 0.5s ease;
+}
+
+@keyframes petBreathe {
+  0%, 100% { transform: scaleY(1); }
+  50% { transform: scaleY(1.02); }
+}
+
+@keyframes petTilt {
+  0%, 100% { transform: rotate(0deg); }
+  25% { transform: rotate(-3deg); }
+  75% { transform: rotate(3deg); }
+}
+
+@keyframes petBob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+
+@keyframes petBounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-20px); }
+}
+
+@keyframes petShake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-5px); }
+  75% { transform: translateX(5px); }
+}
+
 /* ── Responsive ── */
 @media (max-width: 768px) {
   .app {
     grid-template-columns: 1fr;
-    grid-template-rows: 52px 1fr;
-    grid-template-areas:
-      "header"
-      "chat";
+    grid-template-rows: 1fr;
+    grid-template-areas: "chat";
   }
 
   .sidebar {
     display: none;
     position: fixed;
-    top: 52px;
+    top: 0;
     left: 0;
     bottom: 0;
     width: 280px;
@@ -486,10 +640,41 @@ html, body {
   }
 
   .sidebar.open {
-    display: block;
+    display: flex;
   }
 
   .message {
     max-width: 92%;
+  }
+
+  .pet-selector-btn {
+    width: 32px;
+    height: 32px;
+    font-size: 16px;
+    top: 12px;
+    right: 12px;
+  }
+
+  .pet-selector-menu {
+    top: 48px;
+    right: 12px;
+    min-width: 140px;
+  }
+
+  .pet-stage {
+    width: 100px;
+    height: 120px;
+    right: 12px;
+    bottom: 12px;
+  }
+
+  .pet-bubble {
+    max-width: 150px;
+    font-size: 12px;
+  }
+
+  .status {
+    bottom: 140px;
+    right: 12px;
   }
 }

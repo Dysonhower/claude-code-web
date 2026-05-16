@@ -321,6 +321,9 @@ function openSSE(convId, onReady) {
 }
 
 function handleSSEEvent(event, bubble) {
+  // Forward to pet module
+  window.pet?.onStreamEvent(event);
+
   switch (event.type) {
     case 'stream_event': {
       const delta = event.event?.delta;
@@ -503,6 +506,7 @@ async function sendMessage() {
   dom.status.innerHTML = '';
   dom.status.classList.add('visible');
   pushStatus('Connecting...');
+  window.pet?.onStreamEvent({ type: '_send_start' });
 
   addMessageBubble('user', prompt);
 
@@ -516,6 +520,7 @@ async function sendMessage() {
       state._statusLines = [];
       dom.status.textContent = 'Error';
       dom.status.classList.add('visible');
+      window.pet?.onStreamEvent({ type: 'error' });
       setTimeout(() => dom.status.classList.remove('visible'), 4000);
     }
   });
