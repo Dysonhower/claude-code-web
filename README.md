@@ -21,7 +21,7 @@ Web frontend wrapper for Claude Code CLI. Double-click `start.bat` to launch.
 ## Manual Start
 
 ```bash
-cd D:\coding\claude-web
+cd [your claude web location]
 npm install
 npm start
 ```
