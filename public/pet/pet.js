@@ -354,12 +354,12 @@
     if (petState.idleTimer) clearTimeout(petState.idleTimer);
     if (!petState.active || petState.state !== 'idle') return;
 
-    var delay = 30000 + Math.random() * 60000;
+    var delay = 20000 + Math.random() * 30000; // 20-50秒
     petState.idleTimer = setTimeout(function() {
       if (petState.state !== 'idle') return;
       var action = Math.random();
-      if (action < 0.3) render();
-      else if (action < 0.6) say(randomLine(petState.char.lines.idle));
+      if (action < 0.15) render();
+      else if (action < 0.75) say(randomLine(petState.char.lines.idle)); // 60%概率说话
       else {
         petState.stage.classList.add('pet-anim-bounce');
         setTimeout(function() { petState.stage.classList.remove('pet-anim-bounce'); }, 500);
