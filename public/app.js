@@ -22,7 +22,6 @@ const dom = {
   chatInputBar: $('#chatInputBar'),
   btnSend: $('#btnSend'),
   btnNew: $('#btnNewConv'),
-  status: $('#status'),
 };
 
 // ── Marked setup ──
@@ -331,11 +330,9 @@ function handleSSEEvent(event, bubble) {
         switch (delta.type) {
           case 'text_delta':
             updateStreamingBubble(bubble, delta.text);
-            pushStatus('Generating response');
             break;
           case 'thinking_delta':
             appendThinking(delta.thinking);
-            pushStatus('Thinking');
             break;
           case 'input_json_delta':
             break;
@@ -349,7 +346,6 @@ function handleSSEEvent(event, bubble) {
           commitThinkingBlock(bubble);
           const toolEl = addToolUse(bubble, block.name, block.input);
           toolEl.dataset.toolId = block.id;
-          pushStatus(`Running: ${block.name}`);
         }
       }
 
@@ -409,8 +405,6 @@ function handleSSEEvent(event, bubble) {
 
     case 'result':
       finalizeStreamingBubble(bubble);
-      const usage = event.usage || event.message?.usage || event.result?.usage;
-      if (usage) showTokenStats(usage);
       break;
 
     case 'done':
@@ -454,32 +448,6 @@ function closeSSE() {
   lastAssistantBubble = null;
 }
 
-// ── Status bar ──
-
-function pushStatus(line) {
-  const lines = state._statusLines || [];
-  if (lines[lines.length - 1] === line) return;
-  lines.push(line);
-  if (lines.length > 5) lines.shift();
-  state._statusLines = lines;
-  dom.status.innerHTML = lines.map(l => escapeHtml(l)).join('<br>');
-  dom.status.classList.add('visible');
-}
-
-function showTokenStats(usage) {
-  const prev = state._prevUsage || { input_tokens: 0, output_tokens: 0 };
-  const dInput = usage.input_tokens - prev.input_tokens;
-  const dOutput = usage.output_tokens - prev.output_tokens;
-  state._prevUsage = usage;
-  const inK = Math.round(dInput / 100) / 10;
-  const outK = Math.round(dOutput / 100) / 10;
-  state._statusLines = [];
-  dom.status.textContent = `${inK}k in · ${outK}k out tokens`;
-  dom.status.classList.add('visible');
-  clearTimeout(state._statsTimer);
-  state._statsTimer = setTimeout(() => dom.status.classList.remove('visible'), 8000);
-}
-
 // ── Input ──
 
 function enableInput(enabled) {
@@ -502,10 +470,6 @@ async function sendMessage() {
   dom.btnSend.textContent = 'Stop';
   dom.btnSend.classList.add('btn-stop');
   dom.btnSend.disabled = false;
-  state._statusLines = [];
-  dom.status.innerHTML = '';
-  dom.status.classList.add('visible');
-  pushStatus('Connecting...');
   window.pet?.onStreamEvent({ type: '_send_start' });
 
   addMessageBubble('user', prompt);
@@ -517,11 +481,7 @@ async function sendMessage() {
       closeSSE();
       addMessageBubble('assistant', `Error: ${e.message}`);
       enableInput(true);
-      state._statusLines = [];
-      dom.status.textContent = 'Error';
-      dom.status.classList.add('visible');
       window.pet?.onStreamEvent({ type: 'error' });
-      setTimeout(() => dom.status.classList.remove('visible'), 4000);
     }
   });
 }
@@ -535,10 +495,6 @@ async function abortRequest() {
   }
   closeSSE();
   enableInput(true);
-  state._statusLines = [];
-  dom.status.textContent = 'Stopped';
-  dom.status.classList.add('visible');
-  setTimeout(() => dom.status.classList.remove('visible'), 4000);
 }
 
 // ── Event listeners ──
