@@ -256,6 +256,9 @@
     var stateData = petState.char.states[petState.state];
     if (!stateData) return;
 
+    // Ensure stage is visible
+    petState.stage.hidden = false;
+
     // Create or update image element
     if (!petState.imgEl) {
       petState.imgEl = document.createElement('img');
@@ -263,9 +266,10 @@
       petState.imgEl.style.height = '100%';
       petState.imgEl.style.objectFit = 'contain';
       petState.imgEl.onerror = function() {
-        // Fallback to idle image if state image not found
-        if (petState.imgEl.src !== petState.char.basePath + 'killua_idle.png') {
-          petState.imgEl.src = petState.char.basePath + 'killua_idle.png';
+        // Fallback to character's own idle image if state image not found
+        var idleSrc = petState.char.basePath + petState.char.states.idle.image;
+        if (petState.imgEl.src !== idleSrc) {
+          petState.imgEl.src = idleSrc;
         }
       };
       petState.stage.appendChild(petState.imgEl);
@@ -281,6 +285,11 @@
       petState.stage.style.left = petState.position.x + 'px';
       petState.stage.style.top = petState.position.y + 'px';
     }
+  }
+
+  // Should show bubble? (50% chance)
+  function shouldSay() {
+    return Math.random() < 0.5;
   }
 
   // Random line picker
@@ -363,13 +372,18 @@
   function onStreamEvent(event) {
     if (!petState.active || !petState.char) return;
 
+    // Ensure pet stage is visible during task execution
+    if (petState.stage) {
+      petState.stage.hidden = false;
+    }
+
     var type = event.type;
 
     switch (type) {
       case '_send_start':
         petState.textDeltaSeen = false;
         setState('thinking');
-        say(randomLine(petState.char.lines.onThinking));
+        if (shouldSay()) say(randomLine(petState.char.lines.onThinking));
         break;
 
       case 'stream_event':
@@ -383,7 +397,7 @@
           var block = event.event.content_block;
           if (block && block.type === 'tool_use') {
             setState('thinking');
-            say(petState.char.lines.onTool(block.name));
+            if (shouldSay()) say(petState.char.lines.onTool(block.name));
           }
         }
         break;
@@ -395,13 +409,13 @@
 
       case 'done':
         setState('idle');
-        say(randomLine(petState.char.lines.onDone));
+        if (shouldSay()) say(randomLine(petState.char.lines.onDone));
         scheduleIdleAction();
         break;
 
       case 'error':
         setState('error');
-        say(randomLine(petState.char.lines.onError));
+        if (shouldSay()) say(randomLine(petState.char.lines.onError));
         setTimeout(function() { setState('idle'); }, 2000);
         scheduleIdleAction();
         break;
