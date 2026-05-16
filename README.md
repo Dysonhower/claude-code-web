@@ -1,5 +1,7 @@
 # Claude Web
 
+[English Documentation](README_EN.md)
+
 Claude Code CLI 的 Web 前端包装器，提供浏览器界面与 Claude 进行交互。
 
 ## 功能特性
@@ -92,7 +94,3 @@ claude-web/
 ## 许可证
 
 MIT License
-
----
-
-[English Documentation](README_EN.md)
