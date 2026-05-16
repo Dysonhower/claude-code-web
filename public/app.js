@@ -142,8 +142,14 @@ async function selectConversation(id) {
     renderMessages();
     renderSidebar();
     enableInput(true);
-    dom.chatEmpty.style.display = 'none';
-    dom.chatMessages.style.display = 'flex';
+    // Show welcome when empty, chat area when has messages
+    if (state.messages.length === 0) {
+      dom.chatEmpty.style.display = 'flex';
+      dom.chatMessages.style.display = 'none';
+    } else {
+      dom.chatEmpty.style.display = 'none';
+      dom.chatMessages.style.display = 'flex';
+    }
   } catch (e) {
     console.error('Failed to load conversation:', e);
   }

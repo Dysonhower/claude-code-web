@@ -169,12 +169,27 @@ html, body {
   align-items: center;
   justify-content: center;
   color: var(--text-muted);
-  gap: 8px;
+  gap: 16px;
 }
 
-.chat-empty h2 {
-  font-size: 24px;
+.chat-welcome {
+  text-align: center;
+}
+
+.welcome-icon {
+  font-size: 48px;
+  margin-bottom: 16px;
+}
+
+.chat-welcome h2 {
+  font-size: 28px;
   color: var(--text);
+  margin-bottom: 8px;
+}
+
+.welcome-subtitle {
+  font-size: 16px;
+  color: var(--text-muted);
 }
 
 .chat-warning {
@@ -183,7 +198,6 @@ html, body {
   background: rgba(208, 120, 48, 0.06);
   padding: 6px 12px;
   border-radius: 6px;
-  margin-top: 8px;
 }
 
 .chat-messages {
