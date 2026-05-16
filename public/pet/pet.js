@@ -309,11 +309,15 @@
     petState.currentBubble.style.top = Math.max(10, rect.top - 60) + 'px';
   }
 
-  // Show bubble (skip if current bubble still visible)
+  // Show bubble (replace existing if present)
   function say(text) {
     if (!petState.stage || !text || text === petState.lastBubble) return;
-    // Skip if current bubble is still visible
-    if (petState.currentBubble) return;
+
+    // Remove existing bubble if present
+    if (petState.currentBubble) {
+      petState.currentBubble.remove();
+      petState.currentBubble = null;
+    }
 
     petState.lastBubble = text;
 
