@@ -162,6 +162,10 @@ async function deleteConversation(id) {
       enableInput(false);
     }
     renderSidebar();
+    // Auto-create new conversation if all deleted
+    if (state.conversations.length === 0) {
+      createConversation();
+    }
   } catch (e) {
     console.error('Failed to delete conversation:', e);
   }
