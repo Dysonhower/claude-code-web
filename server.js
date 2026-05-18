@@ -164,7 +164,14 @@ app.get('/api/conversations/:id/stream', (req, res) => {
   }
   sseClients.get(id).add(res);
 
+  // Keepalive — prevent idle proxies (nginx 60s, CF 100s) from cutting the
+  // connection while Claude CLI is silently retrying after a 429.
+  const keepalive = setInterval(() => {
+    try { res.write(': ping\n\n'); } catch (e) { /* socket gone */ }
+  }, 15000);
+
   req.on('close', () => {
+    clearInterval(keepalive);
     const clients = sseClients.get(id);
     if (clients) {
       clients.delete(res);
@@ -249,6 +256,14 @@ app.post('/api/conversations/:id/send', async (req, res) => {
       if (event.type === 'stream_event' && event.event?.delta?.type === 'text_delta') {
         fullText += event.event.delta.text;
       }
+      // Authoritative assembled message — overwrite (covers non-streaming runs)
+      if (event.type === 'assistant' && Array.isArray(event.message?.content)) {
+        const assembled = event.message.content
+          .filter((c) => c.type === 'text')
+          .map((c) => c.text)
+          .join('');
+        if (assembled) fullText = assembled;
+      }
       if (event.type === 'result') {
         isComplete = true;
       }
@@ -257,9 +272,30 @@ app.post('/api/conversations/:id/send', async (req, res) => {
     }
   });
 
-  let stderrOutput = '';
-  claude.stderr.on('data', (data) => {
-    stderrOutput += data.toString();
+  // stderr carries Claude CLI's retry / rate-limit notices. Parse line-by-line
+  // and forward as SSE so the user sees activity instead of an empty bubble.
+  const stderrTail = [];
+  const errRl = readline.createInterface({ input: claude.stderr });
+  errRl.on('line', (line) => {
+    stderrTail.push(line);
+    if (stderrTail.length > 50) stderrTail.shift();
+
+    const retry = line.match(/Retrying in (\d+)\s*seconds?.*?attempt\s*(\d+)\s*\/\s*(\d+)/i);
+    if (retry) {
+      broadcastSSE(id, {
+        type: 'retry',
+        delaySec: Number(retry[1]),
+        attempt: Number(retry[2]),
+        maxAttempts: Number(retry[3]),
+        message: line,
+      });
+      return;
+    }
+    if (/\b429\b|rate[\s_-]?limit|overloaded|too many requests/i.test(line)) {
+      broadcastSSE(id, { type: 'rate_limit', message: line });
+      return;
+    }
+    broadcastSSE(id, { type: 'stderr', message: line });
   });
 
   let finalized = false;
@@ -269,13 +305,28 @@ app.post('/api/conversations/:id/send', async (req, res) => {
     clearTimeout(timeout);
     activeRequests.delete(id);
 
-    const text = reason === 'timeout' ? '(request timed out)'
-               : reason === 'error'   ? `(error: ${code})`
-               : (fullText || '(no response)');
-    conv.messages.push({ role: 'assistant', content: text, timestamp: Date.now() });
-    conv.updatedAt = Date.now();
-    if (reason === 'ok') conv.sessionStarted = true;
-    saveConversation(conv);
+    let text;
+    if (reason === 'timeout') {
+      text = fullText ? `${fullText}\n\n(request timed out)` : '(request timed out)';
+    } else if (reason === 'error') {
+      const tail = stderrTail.slice(-10).join('\n');
+      const errSuffix = tail ? `\n${tail}` : '';
+      text = fullText
+        ? `${fullText}\n\n(error ${code})${errSuffix}`
+        : `(error ${code})${errSuffix}`;
+    } else {
+      text = fullText || '(no response)';
+    }
+
+    // Guard against DELETE-during-stream: if the conversation file was removed
+    // while we were running, do not resurrect it.
+    const stillExists = !!safePath(id) && fs.existsSync(safePath(id));
+    if (stillExists) {
+      conv.messages.push({ role: 'assistant', content: text, timestamp: Date.now() });
+      conv.updatedAt = Date.now();
+      if (reason === 'ok') conv.sessionStarted = true;
+      saveConversation(conv);
+    }
 
     broadcastSSE(id, { type: 'done', code, text });
     closeSSE(id);

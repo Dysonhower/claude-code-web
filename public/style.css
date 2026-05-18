@@ -501,10 +501,6 @@ html, body {
   cursor: not-allowed;
 }
 
-.pet-selector-menu button[data-pet="killua"]::after {
-  content: " 🐱";
-}
-
 /* ── Pet Stage ── */
 .pet-stage {
   position: fixed;

@@ -270,6 +270,24 @@ function commitThinkingBlock(parentEl) {
   thinkingAccumulator = '';
 }
 
+// ── Stream status (retry / rate-limit notices) ──
+
+function showStatus(parentEl, message) {
+  let status = parentEl.querySelector('.stream-status');
+  if (!status) {
+    status = document.createElement('div');
+    status.className = 'stream-status';
+    status.style.cssText = 'font-size:12px;color:#a06000;font-style:italic;margin-bottom:8px;padding:6px 10px;background:rgba(255,200,0,0.15);border-left:3px solid #f0a000;border-radius:4px;';
+    parentEl.insertBefore(status, parentEl.firstChild);
+  }
+  status.textContent = message;
+}
+
+function clearStatus(parentEl) {
+  const status = parentEl.querySelector('.stream-status');
+  if (status) status.remove();
+}
+
 // ── Tool use display ──
 
 function addToolUse(parentEl, toolName, toolInput) {
@@ -314,8 +332,26 @@ function openSSE(convId, onReady) {
   };
 
   es.onerror = () => {
+    // Graceful close (after 'done') already nulled state.eventSource.
+    // Only handle real connection failures here.
+    if (!state.eventSource) return;
+
     es.close();
     state.eventSource = null;
+
+    if (lastAssistantBubble) {
+      if (!lastAssistantBubble.dataset.rawText) {
+        lastAssistantBubble.innerHTML =
+          '<span style="color:var(--danger)">连接中断，请稍后重试</span>';
+        // Mark non-empty so closeSSE won't remove the bubble next time.
+        lastAssistantBubble.dataset.rawText = ' ';
+      }
+      finalizeStreamingBubble(lastAssistantBubble);
+    }
+    thinkingAccumulator = '';
+    thinkingBlockEl = null;
+    lastAssistantBubble = null;
+    enableInput(true);
   };
 }
 
@@ -324,8 +360,29 @@ function handleSSEEvent(event, bubble) {
   window.pet?.onStreamEvent(event);
 
   switch (event.type) {
+    case 'retry': {
+      const eta = event.delaySec ? `，${event.delaySec}s 后` : '';
+      const attempt = event.attempt && event.maxAttempts
+        ? `第 ${event.attempt}/${event.maxAttempts} 次` : '';
+      showStatus(bubble, `⏳ Claude API 触发限流${eta}重试 ${attempt}...`);
+      break;
+    }
+
+    case 'rate_limit':
+      showStatus(bubble, `⚠️  ${event.message}`);
+      break;
+
+    case 'stderr':
+      // Quietly log; don't disturb UI for non-error noise
+      console.debug('[claude stderr]', event.message);
+      break;
+
     case 'stream_event': {
+      // Any real content arriving means retries have succeeded — clear the banner.
       const delta = event.event?.delta;
+      if (delta?.type === 'text_delta' || delta?.type === 'thinking_delta') {
+        clearStatus(bubble);
+      }
       if (delta) {
         switch (delta.type) {
           case 'text_delta':
